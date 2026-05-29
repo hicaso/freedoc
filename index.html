@@ -328,13 +328,107 @@
                 updateElements(prev => [...prev, { ...el, id: Date.now() }]);
             };
 
-            const handleLogout = () => {
-                saveDoc(true);
-                setUser(null);
-                setDocs([]);
-                updateElements([]);
-                setView('login');
-            };
+             const handleLogout = () => {
+                 saveDoc(true);
+                 setUser(null);
+                 setDocs([]);
+                 updateElements([]);
+                 setView('login');
+             };
+
+             const exportBackup = () => {
+                 if (!user) return;
+                 const docsListJSON = localStorage.getItem(`freedoc_docs_${user.id}`);
+                 const docsList = JSON.parse(docsListJSON || '[]');
+                 
+                 const backupData = {
+                     version: "freedoc-backup-v1",
+                     userId: user.id,
+                     docs: docsList,
+                     docsData: {}
+                 };
+                 
+                 docsList.forEach(doc => {
+                     const data = localStorage.getItem(`freedoc_doc_data_${user.id}_${doc.id}`);
+                     if (data) {
+                         try {
+                             backupData.docsData[doc.id] = JSON.parse(data);
+                         } catch(e) {}
+                     }
+                 });
+                 
+                 const jsonString = JSON.stringify(backupData, null, 2);
+                 const blob = new Blob([jsonString], { type: "application/json" });
+                 const url = URL.createObjectURL(blob);
+                 const a = document.createElement("a");
+                 a.href = url;
+                 a.download = `freedoc_backup_${user.id}_${new Date().toISOString().slice(0, 10)}.json`;
+                 document.body.appendChild(a);
+                 a.click();
+                 document.body.removeChild(a);
+                 URL.revokeObjectURL(url);
+             };
+
+             const importBackup = () => {
+                 if (!user) return;
+                 const input = document.createElement("input");
+                 input.type = "file";
+                 input.accept = ".json";
+                 input.onchange = (e) => {
+                     const file = e.target.files[0];
+                     if (!file) return;
+                     
+                     const reader = new FileReader();
+                     reader.onload = (event) => {
+                         try {
+                             const backupData = JSON.parse(event.target.result);
+                             if (backupData.version !== "freedoc-backup-v1") {
+                                 alert("올바른 FreeDoc 백업 파일이 아닙니다.");
+                                 return;
+                             }
+                             
+                             // Restore document detailed data keys
+                             if (backupData.docsData) {
+                                 Object.keys(backupData.docsData).forEach(docId => {
+                                     localStorage.setItem(
+                                         `freedoc_doc_data_${user.id}_${docId}`,
+                                         JSON.stringify(backupData.docsData[docId])
+                                     );
+                                 });
+                             }
+                             
+                             // Merge document list
+                             const currentDocsJSON = localStorage.getItem(`freedoc_docs_${user.id}`);
+                             const currentDocs = JSON.parse(currentDocsJSON || '[]');
+                             const mergedDocsMap = new Map();
+                             currentDocs.forEach(d => mergedDocsMap.set(d.id, d));
+                             
+                             if (backupData.docs) {
+                                 backupData.docs.forEach(d => {
+                                     if (!mergedDocsMap.has(d.id) || (d.updatedAt || 0) > (mergedDocsMap.get(d.id).updatedAt || 0)) {
+                                         mergedDocsMap.set(d.id, d);
+                                     }
+                                 });
+                             }
+                             
+                             const mergedDocs = Array.from(mergedDocsMap.values());
+                             const sortedDocs = [...mergedDocs].sort((a,b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+                             
+                             localStorage.setItem(`freedoc_docs_${user.id}`, JSON.stringify(sortedDocs));
+                             setDocs(sortedDocs);
+                             
+                             if (sortedDocs.length > 0) {
+                                 loadDoc(sortedDocs[0]);
+                             }
+                             alert("백업 데이터를 성공적으로 불러왔습니다!");
+                         } catch (error) {
+                             alert("파일을 읽는 도중 오류가 발생했습니다: " + error.message);
+                         }
+                     };
+                     reader.readAsText(file);
+                 };
+                 input.click();
+             };
 
             // --- v4.3 Engine Hooks ---
             useEffect(() => {
@@ -699,7 +793,13 @@
 
                     <div className="app-layout">
                         <aside className="sidebar no-print">
-                            <div className="sidebar-header"><button onClick={createNewDoc} className="new-btn">+ 새 문서 만들기</button></div>
+                            <div className="sidebar-header flex flex-col gap-2">
+                                <button onClick={createNewDoc} className="new-btn">+ 새 문서 만들기</button>
+                                <div className="flex gap-2 w-full mt-1.5">
+                                    <button onClick={exportBackup} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] py-1.5 px-2 rounded-lg font-bold transition-all border border-slate-700 hover:border-slate-600 shadow-sm flex items-center justify-center gap-1" title="모든 문서를 PC에 파일로 저장">💾 백업 저장</button>
+                                    <button onClick={importBackup} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] py-1.5 px-2 rounded-lg font-bold transition-all border border-slate-700 hover:border-slate-600 shadow-sm flex items-center justify-center gap-1" title="PC의 백업 파일 불러오기">📂 백업 복구</button>
+                                </div>
+                            </div>
                             <div className="sidebar-content">
                                 <h3 className="sidebar-section-title">문서 히스토리</h3>
                                 {[...docs].sort((a,b)=>(b.updatedAt || 0)-(a.updatedAt || 0)).map(doc => (
