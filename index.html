@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FreeDoc Pro - Premium Document Suite v5.6</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --primary: #2563eb; --primary-hover: #1d4ed8; }
+        body { background-color: #f8fafc; font-family: 'Inter', 'Noto Sans KR', sans-serif; overflow: hidden; margin: 0; }
+        
+        /* Auth Styles (v5.2 Design) */
+        .auth-container { height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); }
+        .auth-card { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 24px; padding: 40px; width: 100%; max-width: 400px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }
+        .auth-input { width: 100%; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 12px 16px; color: white; outline: none; transition: all 0.2s; font-size: 14px; margin-bottom: 12px; }
+        .auth-input:focus { border-color: var(--primary); background: rgba(255, 255, 255, 0.08); }
+        .auth-btn { width: 100%; background: var(--primary); color: white; padding: 14px; border-radius: 12px; font-weight: 700; transition: all 0.2s; }
+        .auth-btn:hover { background: var(--primary-hover); transform: translateY(-1px); }
+
+        /* Editor Layout (v4.3 Restored) */
+        .app-layout { display: flex; height: calc(100vh - 64px); }
+        .sidebar { width: 280px; background: #0f172a; color: white; display: flex; flex-direction: column; overflow: hidden; border-right: 1px solid #1e293b; }
+        .sidebar-header { padding: 16px; border-bottom: 1px solid #1e293b; }
+        .new-btn { width: 100%; padding: 12px; background: #1e293b; border: 1px solid #334155; border-radius: 8px; color: white; font-size: 13px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s; }
+        .new-btn:hover { background: #334155; border-color: #3b82f6; }
+        .sidebar-content { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 4px; }
+        .sidebar-section-title { font-size: 11px; font-weight: 800; color: #93c5fd; letter-spacing: 0.05em; padding: 12px; text-transform: uppercase; display: flex; align-items: center; gap: 6px; }
+        .sidebar-section-title::before { content: ''; display: block; width: 4px; height: 12px; background: #3b82f6; border-radius: 2px; }
+        .doc-item { padding: 10px 12px; border-radius: 6px; font-size: 13px; color: #94a3b8; cursor: pointer; transition: all 0.2s; display: flex; justify-content: space-between; align-items: center; }
+        .doc-item:hover { background: #1e293b; color: white; }
+        .doc-item.active { background: #1e293b; color: white; border-left: 3px solid #3b82f6; }
+        
+        .tray-section { border-top: 1px solid #1e293b; padding: 12px; max-height: 400px; overflow-y: auto; background: #0b1120; }
+        .tray-item { position: relative; background: #1e293b; padding: 10px; border: 1px solid #334155; border-radius: 6px; font-size: 12px; color: #cbd5e1; cursor: grab; margin-bottom: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        .canvas-container { flex: 1; overflow: auto; display: flex; justify-content: center; padding: 80px; background: #e2e8f0; position: relative; }
+        .paper { background: white; background-image: radial-gradient(#cbd5e1 1.5px, transparent 1.5px); background-size: 20px 20px; box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.2); position: relative; cursor: text; outline: none; transition: width 0.4s ease, height 0.4s ease; }
+        
+        .text-element { position: absolute; white-space: pre-wrap; line-height: 1.4; outline: none; cursor: move; padding: 4px; border: 1px solid transparent; display: inline-block; z-index: 10; user-select: none; }
+        .text-element.selected { border-color: #3b82f6; background: rgba(239, 246, 255, 0.8); z-index: 20; border-radius: 4px; }
+        
+        .context-menu { position: fixed; background: white; border: 1px solid #e2e8f0; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.15); border-radius: 8px; padding: 6px; min-width: 150px; z-index: 1000; }
+        .menu-item { padding: 10px 14px; font-size: 12px; font-weight: 600; color: #334155; cursor: pointer; border-radius: 4px; display: flex; align-items: center; justify-content: space-between; transition: all 0.1s; }
+        .menu-item:hover { background: #f1f5f9; color: #2563eb; }
+        .menu-item.delete { color: #ef4444; }
+
+        #text-measurer { position: absolute; visibility: hidden; height: auto; width: auto; white-space: pre-wrap; pointer-events: none; }
+        .active-textarea { position: absolute; background: white; border: 2px solid #2563eb; outline: none; resize: none; padding: 4px; margin: 0; line-height: 1.4; overflow: hidden; z-index: 100; border-radius: 4px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); }
+        .resize-handle { position: absolute; width: 14px; height: 14px; background: #2563eb; border: 2px solid white; border-radius: 50%; bottom: -7px; right: -7px; cursor: nwse-resize; z-index: 150; }
+        
+        @media print { .no-print { display: none !important; } .sidebar { display: none; } .paper { box-shadow: none; background-image: none; margin: 0; } body { background: white; } }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo } = React;
+
+        const PAGE_SIZES = {
+            A4: { width: 210, height: 297 },
+            A3: { width: 297, height: 420 },
+            Letter: { width: 215.9, height: 279.4 }
+        };
+
+        const App = () => {
+            // View State
+            const [view, setView] = useState('login');
+            const [user, setUser] = useState(null);
+            
+            // UI States
+            const [confirmModal, setConfirmModal] = useState({ isOpen: false, message: '', onConfirm: null });
+            
+            // Editor states (v4.3 engine)
+            const [docs, setDocs] = useState([]);
+            const docsRef = useRef(docs);
+            useEffect(() => { docsRef.current = docs; }, [docs]);
+            const [currentDocId, setCurrentDocId] = useState(null);
+            const [elements, setElements] = useState([]);
+            const [sizeKey, setSizeKey] = useState('A4');
+            const [isLandscape, setIsLandscape] = useState(false);
+            const [customSize, setCustomSize] = useState({ width: 210, height: 297 });
+            const [activeId, setActiveId] = useState(null);
+            const [isEditing, setIsEditing] = useState(false);
+            const [style, setStyle] = useState({ fontSize: 16, color: '#1e293b', fontFamily: 'Noto Sans KR' });
+
+            const userRef = useRef(user);
+            const currentDocIdRef = useRef(currentDocId);
+            const elementsRef = useRef(elements);
+            const sizeKeyRef = useRef(sizeKey);
+            const isLandscapeRef = useRef(isLandscape);
+            const customSizeRef = useRef(customSize);
+
+            useEffect(() => { userRef.current = user; }, [user]);
+            useEffect(() => { currentDocIdRef.current = currentDocId; }, [currentDocId]);
+            useEffect(() => { elementsRef.current = elements; }, [elements]);
+            useEffect(() => { sizeKeyRef.current = sizeKey; }, [sizeKey]);
+            useEffect(() => { isLandscapeRef.current = isLandscape; }, [isLandscape]);
+            useEffect(() => { customSizeRef.current = customSize; }, [customSize]);
+
+            const updateElements = (newElements) => {
+                setElements(newElements);
+                if (typeof newElements === 'function') {
+                    elementsRef.current = newElements(elementsRef.current);
+                } else {
+                    elementsRef.current = newElements;
+                }
+            };
+            
+            const [contextMenu, setContextMenu] = useState(null);
+            const [dragState, setDragState] = useState({ id: null, offsetX: 0, offsetY: 0, originalFontSize: 16, originalWidth: 200, startX: 0, startY: 0 });
+            const [isResizing, setIsResizing] = useState(false);
+            
+            // Drawing states
+            const [isDrawingMode, setIsDrawingMode] = useState(false);
+            const drawCanvasRef = useRef(null);
+            const [isDrawing, setIsDrawing] = useState(false);
+            const [minMaxXY, setMinMaxXY] = useState(null);
+            const [drawColor, setDrawColor] = useState('#2563eb');
+            const [drawSize, setDrawSize] = useState(4);
+            const [isEraser, setIsEraser] = useState(false);
+            
+            // Rename doc state
+            const [editingDocId, setEditingDocId] = useState(null);
+            const [editingDocTitle, setEditingDocTitle] = useState('');
+            
+            // Undo state for drawing
+            const [undoStack, setUndoStack] = useState([]);
+            
+            const paperRef = useRef(null);
+            const measurerRef = useRef(null);
+            const lastEnterTimeRef = useRef(0);
+            const SNAP_SIZE = 20;
+
+            const mmToPx = (mm) => (mm * 96) / 25.4;
+            const paperDim = useMemo(() => {
+                let w = 210, h = 297;
+                if (sizeKey === '사용자지정') { w = customSize.width; h = customSize.height; }
+                else if (PAGE_SIZES[sizeKey]) { w = PAGE_SIZES[sizeKey].width; h = PAGE_SIZES[sizeKey].height; }
+                if (isLandscape) [w, h] = [h, w];
+                return { w: mmToPx(w), h: mmToPx(h) };
+            }, [sizeKey, isLandscape, customSize]);
+
+            // --- Auth & Data Loading ---
+            const handleLogin = (id, pw) => {
+                // 마스터 계정 또는 로컬 유저 체크
+                const users = JSON.parse(localStorage.getItem('freedoc_users') || '[]');
+                const found = (id === 'master' && pw === '1234') ? { id: 'master', nickname: '마스터 관리자' } : users.find(u => u.id === id && u.pw === pw);
+                
+                if (found) {
+                    setUser(found);
+                    const saved = localStorage.getItem(`freedoc_docs_${found.id}`);
+                    const parsed = saved ? JSON.parse(saved) : [];
+                    
+                    // 마이그레이션 진행: 기존 데이터가 있으면 개별 파일로 분리 저장
+                    let needsMigrationSave = false;
+                    const migratedDocs = parsed.map(doc => {
+                        if (doc.data) {
+                            try {
+                                localStorage.setItem(`freedoc_doc_data_${found.id}_${doc.id}`, JSON.stringify(doc.data));
+                            } catch (e) {
+                                console.error("Migration error for doc " + doc.id, e);
+                            }
+                            const { data, ...rest } = doc;
+                            needsMigrationSave = true;
+                            return rest;
+                        }
+                        return doc;
+                    });
+                    
+                    if (needsMigrationSave) {
+                        try {
+                            localStorage.setItem(`freedoc_docs_${found.id}`, JSON.stringify(migratedDocs));
+                        } catch (e) {
+                            console.error("Migration list save error", e);
+                        }
+                    }
+                    
+                    const sorted = [...migratedDocs].sort((a,b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+                    setDocs(sorted);
+                    if (sorted.length > 0) loadDoc(sorted[0], found);
+                    else createNewDoc();
+                    setView('editor');
+                } else { alert('아이디 또는 비밀번호가 틀립니다.'); }
+            };
+
+            const loadDoc = (doc, activeUserOverride = null) => {
+                setCurrentDocId(doc.id);
+                const activeUser = activeUserOverride || userRef.current || user;
+                let docData = null;
+                if (activeUser) {
+                    const savedData = localStorage.getItem(`freedoc_doc_data_${activeUser.id}_${doc.id}`);
+                    if (savedData) {
+                        try {
+                            docData = JSON.parse(savedData);
+                        } catch (e) {}
+                    }
+                }
+                
+                // Fallback for safety (though migratedDocs won't have doc.data)
+                if (!docData && doc.data) {
+                    docData = doc.data;
+                }
+                
+                const elementsToLoad = docData?.elements || [];
+                const sizeKeyToLoad = docData?.sizeKey || 'A4';
+                const isLandscapeToLoad = docData?.isLandscape || false;
+                const customSizeToLoad = docData?.customSize || { width: 210, height: 297 };
+                
+                updateElements(elementsToLoad);
+                setSizeKey(sizeKeyToLoad);
+                setIsLandscape(isLandscapeToLoad);
+                setCustomSize(customSizeToLoad);
+                setActiveId(null); 
+                setIsEditing(false);
+            };
+
+            const createNewDoc = () => {
+                setCurrentDocId(Date.now()); updateElements([]); setSizeKey('A4'); setIsLandscape(false); setCustomSize({ width: 210, height: 297 }); setActiveId(null);
+            };
+
+            const saveDoc = (silent = false, customDocs = null) => {
+                const activeUser = userRef.current;
+                const activeDocId = currentDocIdRef.current;
+                if (!activeDocId || !activeUser) return;
+                
+                // localStorage에서 최신 데이터를 직접 가져와 동기화 문제(Race condition) 방지
+                let freshDocs = [];
+                try {
+                    freshDocs = JSON.parse(localStorage.getItem(`freedoc_docs_${activeUser.id}`) || '[]');
+                } catch(e) {}
+                
+                const docsToUse = customDocs || freshDocs;
+                const currentElements = elementsRef.current;
+                const firstText = currentElements.find(el => el.type !== 'image' && el.text && !el.inTray)?.text?.substring(0, 15) || "새 문서";
+                const currentData = { 
+                    elements: currentElements, 
+                    sizeKey: sizeKeyRef.current, 
+                    isLandscape: isLandscapeRef.current, 
+                    customSize: customSizeRef.current 
+                };
+                
+                // 1. 상세 데이터를 개별 문서 키에 저장
+                try {
+                    localStorage.setItem(`freedoc_doc_data_${activeUser.id}_${activeDocId}`, JSON.stringify(currentData));
+                } catch (error) {
+                    alert('저장 용량이 초과되었거나 오류가 발생했습니다. 불필요한 문서나 이미지를 삭제해 주세요.');
+                    console.error('Save error:', error);
+                    return; // 목록 저장을 하지 않고 중단
+                }
+                
+                // 2. 메타데이터 목록에서 data 제거하여 경량화 후 저장
+                const exists = docsToUse.find(d => d.id === activeDocId);
+                const finalDocs = exists 
+                    ? docsToUse.map(d => d.id === activeDocId ? { 
+                        ...d, 
+                        title: d.hasCustomTitle ? d.title : firstText,
+                        updatedAt: Date.now() 
+                       } : d)
+                    : [...docsToUse, { 
+                        id: activeDocId, 
+                        title: firstText, 
+                        hasCustomTitle: false,
+                        updatedAt: Date.now() 
+                    }];
+                    
+                const cleanedDocs = finalDocs.map(d => {
+                    const { data, ...rest } = d;
+                    return rest;
+                });
+                
+                const sortedDocs = [...cleanedDocs].sort((a,b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+                
+                try {
+                    localStorage.setItem(`freedoc_docs_${activeUser.id}`, JSON.stringify(sortedDocs));
+                    setDocs(sortedDocs);
+                    if (silent === false || silent?.type === 'click') alert('저장되었습니다.');
+                } catch (error) {
+                    console.error('Save list error:', error);
+                }
+            };
+            const switchDoc = (doc) => {
+                if (currentDocId === doc.id) return;
+                let latestDocs = docs;
+                if (editingDocId !== null) {
+                    latestDocs = docs.map(d => d.id === editingDocId ? { ...d, title: editingDocTitle || '제목 없음', hasCustomTitle: true } : d);
+                }
+                saveDoc(true, latestDocs);
+                loadDoc(doc);
+                setEditingDocId(null);
+                setEditingDocTitle('');
+            };
+
+            const deleteDoc = (id) => {
+                setConfirmModal({
+                    isOpen: true,
+                    message: '정말 이 문서를 삭제하시겠습니까?',
+                    onConfirm: () => {
+                        const newDocs = docsRef.current.filter(d => d.id !== id);
+                        setDocs(newDocs);
+                        localStorage.setItem(`freedoc_docs_${user.id}`, JSON.stringify(newDocs));
+                        try {
+                            localStorage.removeItem(`freedoc_doc_data_${user.id}_${id}`);
+                        } catch (e) {}
+                        if (currentDocId === id) {
+                            if (newDocs.length > 0) loadDoc(newDocs[0]);
+                            else createNewDoc();
+                        }
+                    }
+                });
+            };
+
+            const deleteElement = (id) => {
+                setConfirmModal({
+                    isOpen: true,
+                    message: '이 글감을 삭제하시겠습니까?',
+                    onConfirm: () => {
+                        updateElements(prev => prev.filter(el => el.id !== id));
+                    }
+                });
+            };
+
+            const duplicateTrayItem = (el) => {
+                updateElements(prev => [...prev, { ...el, id: Date.now() }]);
+            };
+
+            const handleLogout = () => {
+                saveDoc(true);
+                setUser(null);
+                setDocs([]);
+                updateElements([]);
+                setView('login');
+            };
+
+            // --- v4.3 Engine Hooks ---
+            useEffect(() => {
+                const handleBeforeUnload = () => {
+                    saveDoc(true);
+                };
+                window.addEventListener('beforeunload', handleBeforeUnload);
+                return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+            }, []);
+
+            useEffect(() => {
+                if (view !== 'editor' || !currentDocId) return;
+                const timer = setTimeout(() => saveDoc(true), 1500);
+                return () => clearTimeout(timer);
+            }, [elements, sizeKey, isLandscape, customSize, currentDocId, view]);
+            
+            useEffect(() => {
+                if (view !== 'editor') return;
+                const handleGlobalClick = () => setContextMenu(null);
+                const handleKeyDown = (e) => {
+                    if (e.ctrlKey && e.key === 's') {
+                        e.preventDefault();
+                        saveDoc(true);
+                        alert('저장되었습니다.');
+                        return;
+                    }
+                    if (isEditing) return;
+                    if ((e.key === 'Delete' || e.key === 'Backspace') && activeId && e.target === document.body) {
+                        updateElements(prev => prev.filter(el => el.id !== activeId));
+                        setActiveId(null);
+                    }
+                    if (e.ctrlKey && e.key === 'd' && activeId) {
+                        e.preventDefault();
+                        const el = elements.find(i => i.id === activeId);
+                        if (el) updateElements(prev => [...prev, { ...el, id: Date.now(), x: el.x + 20, y: el.y + 20 }]);
+                    }
+                };
+                window.addEventListener('click', handleGlobalClick);
+                window.addEventListener('keydown', handleKeyDown);
+                return () => { window.removeEventListener('click', handleGlobalClick); window.removeEventListener('keydown', handleKeyDown); };
+            }, [activeId, isEditing, view, elements]);
+
+            useEffect(() => {
+                if (view !== 'editor') return;
+                const move = (e) => {
+                    if (!dragState.id) return;
+                    const rect = paperRef.current.getBoundingClientRect();
+                    if (isResizing) {
+                        const dx = e.clientX - dragState.startX;
+                        const dy = e.clientY - dragState.startY;
+                        updateElements(prev => prev.map(el => {
+                            if (el.id !== dragState.id) return el;
+                            if (el.type === 'image') return { ...el, imgWidth: Math.max(20, Math.round(dragState.originalWidth + dx)) };
+                            return { ...el, fontSize: Math.max(8, Math.min(100, Math.round(dragState.originalFontSize + Math.max(dx, dy) * 0.5))) };
+                        }));
+                    } else {
+                        const mouseXOnPaper = e.clientX - rect.left;
+                        const mouseYOnPaper = e.clientY - rect.top;
+                        let targetX = mouseXOnPaper - dragState.offsetX;
+                        let targetY = mouseYOnPaper - dragState.offsetY;
+                        
+                        if (Math.abs(e.clientX - dragState.startX) < 3 && Math.abs(e.clientY - dragState.startY) < 3) return;
+
+                        updateElements(prev => prev.map(el => {
+                            if (el.id !== dragState.id) return el;
+                            let inTray = mouseXOnPaper < -20;
+                            if (!inTray) {
+                                targetX = Math.round(targetX / SNAP_SIZE) * SNAP_SIZE;
+                                targetY = Math.round(targetY / SNAP_SIZE) * SNAP_SIZE;
+                                targetX = Math.max(0, targetX); targetY = Math.max(0, targetY);
+                            }
+                            return { ...el, x: targetX, y: targetY, inTray };
+                        }));
+                    }
+                };
+                const up = () => { setDragState({ id: null }); setIsResizing(false); };
+                window.addEventListener('mousemove', move);
+                window.addEventListener('mouseup', up);
+                return () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); };
+            }, [dragState, isResizing, view]);
+
+            const startAction = (e, el, type) => {
+                e.stopPropagation(); setActiveId(el.id);
+                const rect = paperRef.current.getBoundingClientRect();
+                if (type === 'resize') {
+                    setIsResizing(true);
+                    setDragState({ id: el.id, startX: e.clientX, startY: e.clientY, originalFontSize: el.fontSize, originalWidth: el.imgWidth || 200 });
+                } else {
+                    setIsEditing(false);
+                    const mouseXOnPaper = e.clientX - rect.left;
+                    const mouseYOnPaper = e.clientY - rect.top;
+                    setDragState({
+                        id: el.id,
+                        offsetX: el.inTray ? 30 : mouseXOnPaper - el.x,
+                        offsetY: el.inTray ? 15 : mouseYOnPaper - el.y,
+                        startX: e.clientX, startY: e.clientY
+                    });
+                }
+            };
+
+            const handlePaperClick = (e) => {
+                if (e.target !== paperRef.current) return;
+                const rect = paperRef.current.getBoundingClientRect();
+                const x = Math.round((e.clientX - rect.left) / SNAP_SIZE) * SNAP_SIZE;
+                const y = Math.round((e.clientY - rect.top) / SNAP_SIZE) * SNAP_SIZE;
+                const nid = Date.now();
+                updateElements(prev => {
+                    const cleanPrev = prev.filter(el => el.type === 'image' || el.inTray || (el.text && el.text.trim() !== ''));
+                    return [...cleanPrev, { id: nid, x, y, text: '', fontSize: style.fontSize, inTray: false }];
+                });
+                setActiveId(nid); setIsEditing(true);
+            };
+
+            const startDrawing = (e) => {
+                if (!isDrawingMode || !drawCanvasRef.current) return;
+                const rect = drawCanvasRef.current.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                const ctx = drawCanvasRef.current.getContext('2d');
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                ctx.strokeStyle = drawColor;
+                ctx.lineWidth = drawSize;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.globalCompositeOperation = isEraser ? 'destination-out' : 'source-over';
+                setIsDrawing(true);
+                setMinMaxXY(prev => prev || { minX: x, maxX: x, minY: y, maxY: y });
+            };
+
+            const draw = (e) => {
+                if (!isDrawing || !isDrawingMode || !drawCanvasRef.current) return;
+                const rect = drawCanvasRef.current.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                const ctx = drawCanvasRef.current.getContext('2d');
+                ctx.lineTo(x, y);
+                ctx.stroke();
+                setMinMaxXY(prev => ({
+                    minX: Math.min(prev.minX, x),
+                    maxX: Math.max(prev.maxX, x),
+                    minY: Math.min(prev.minY, y),
+                    maxY: Math.max(prev.maxY, y)
+                }));
+            };
+
+            const endDrawing = () => {
+                if (!isDrawing || !isDrawingMode) return;
+                setIsDrawing(false);
+                if (drawCanvasRef.current) {
+                    setUndoStack(prev => [...prev, { imgUrl: drawCanvasRef.current.toDataURL(), bounds: minMaxXY }]);
+                }
+            };
+
+            const handleUndo = () => {
+                if (undoStack.length === 0 || !drawCanvasRef.current) return;
+                const newStack = [...undoStack];
+                newStack.pop();
+                setUndoStack(newStack);
+                
+                const ctx = drawCanvasRef.current.getContext('2d');
+                ctx.clearRect(0, 0, paperDim.w, paperDim.h);
+                
+                if (newStack.length > 0) {
+                    const lastState = newStack[newStack.length - 1];
+                    const img = new Image();
+                    img.onload = () => { ctx.drawImage(img, 0, 0); };
+                    img.src = lastState.imgUrl;
+                    setMinMaxXY(lastState.bounds);
+                } else {
+                    setMinMaxXY(null);
+                }
+            };
+            
+            const saveDrawing = () => {
+                if (!drawCanvasRef.current || !minMaxXY) {
+                    setIsDrawingMode(false);
+                    return;
+                }
+                const padding = 20;
+                let { minX, maxX, minY, maxY } = minMaxXY;
+                minX = Math.max(0, minX - padding);
+                minY = Math.max(0, minY - padding);
+                maxX = Math.min(paperDim.w, maxX + padding);
+                maxY = Math.min(paperDim.h, maxY + padding);
+                
+                const w = maxX - minX;
+                const h = maxY - minY;
+                
+                if (w <= padding * 2 || h <= padding * 2) {
+                    drawCanvasRef.current.getContext('2d').clearRect(0, 0, paperDim.w, paperDim.h);
+                    setIsDrawingMode(false);
+                    setMinMaxXY(null);
+                    return;
+                }
+
+                const cropped = document.createElement('canvas');
+                cropped.width = w; cropped.height = h;
+                const cctx = cropped.getContext('2d');
+                cctx.drawImage(drawCanvasRef.current, minX, minY, w, h, 0, 0, w, h);
+                const dataUrl = cropped.toDataURL('image/png');
+                
+                updateElements(prev => [...prev, { 
+                    id: Date.now(), type: 'image', src: dataUrl, imgWidth: w, x: minX, y: minY, inTray: false 
+                }]);
+                
+                drawCanvasRef.current.getContext('2d').clearRect(0, 0, paperDim.w, paperDim.h);
+                setMinMaxXY(null);
+                setUndoStack([]);
+                setIsDrawingMode(false);
+            };
+            
+            const cancelDrawing = () => {
+                if (drawCanvasRef.current) drawCanvasRef.current.getContext('2d').clearRect(0, 0, paperDim.w, paperDim.h);
+                setMinMaxXY(null);
+                setUndoStack([]);
+                setIsDrawingMode(false);
+            };
+
+            const handleImageUpload = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const MAX_SIZE = 800;
+                        let w = img.width, h = img.height;
+                        if (w > MAX_SIZE || h > MAX_SIZE) {
+                            if (w > h) { h *= MAX_SIZE / w; w = MAX_SIZE; }
+                            else { w *= MAX_SIZE / h; h = MAX_SIZE; }
+                        }
+                        const canvas = document.createElement('canvas');
+                        canvas.width = w; canvas.height = h;
+                        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                        
+                        updateElements(prev => [...prev, { id: Date.now(), type: 'image', src: dataUrl, imgWidth: Math.min(w, 300), x: 50, y: 50, inTray: false }]);
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+                e.target.value = '';
+            };
+
+            const exportToWord = () => {
+                const sorted = [...elements.filter(el => el.type !== 'image' && !el.inTray && el.text && el.text.trim() !== '')].sort((a, b) => a.id - b.id);
+                
+                let htmlContent = `
+                    <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+                    <head><meta charset='utf-8'><title>Export</title></head>
+                    <body>
+                        <div style="font-family: 'Malgun Gothic', 'Noto Sans KR', sans-serif;">
+                `;
+                
+                sorted.forEach((el, index) => {
+                    htmlContent += `<p style="font-size: ${el.fontSize}px; margin: 4px 0;">${el.text.replace(/\n/g, '<br/>')}</p>`;
+                    if (index < sorted.length - 1) {
+                        htmlContent += `<p><br/></p>`;
+                    }
+                });
+                
+                htmlContent += `</div></body></html>`;
+                
+                const blob = new Blob(['\ufeff', htmlContent], { type: 'application/msword' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `${docsRef.current.find(d => d.id === currentDocId)?.title || '문서'}.doc`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            };
+
+            // --- Auth Views ---
+            const LoginView = () => {
+                const [id, setId] = useState('');
+                const [pw, setPw] = useState('');
+                return (
+                    <div className="auth-container">
+                        <div className="auth-card fade-in">
+                            <div className="text-center mb-10">
+                                <h1 className="text-3xl font-extrabold text-white tracking-tighter mb-2">FreeDoc <span className="text-blue-500 font-medium">PRO</span></h1>
+                                <p className="text-slate-400 text-sm font-medium">자유로운 캔버스 위의 기록</p>
+                            </div>
+                            <form onSubmit={(e) => { e.preventDefault(); handleLogin(id, pw); }} className="space-y-4">
+                                <input type="text" placeholder="아이디" className="auth-input" value={id} onChange={e=>setId(e.target.value)} />
+                                <input type="password" placeholder="비밀번호" className="auth-input" value={pw} onChange={e=>setPw(e.target.value)} />
+                                <button type="submit" className="auth-btn">로그인</button>
+                            </form>
+                            <div className="mt-8 text-center text-xs text-slate-500 font-medium">
+                                계정이 없으신가요? <button onClick={() => alert('회원가입은 준비 중입니다. 마스터 계정을 이용하세요.')} className="text-blue-500 font-bold hover:underline">회원가입</button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            };
+
+            if (view === 'login') return <LoginView />;
+
+            return (
+                <div className="flex flex-col w-full h-screen fade-in">
+                    <div id="text-measurer" ref={measurerRef}></div>
+                    <nav className="no-print h-16 bg-slate-900 flex items-center justify-between px-6 z-50 shadow-xl overflow-x-auto">
+                        <div className="flex items-center gap-3 text-white min-w-max">
+                            <h1 className="text-xl font-black italic tracking-tighter shrink-0">FreeDoc <span className="text-blue-500 font-medium not-italic">PRO</span> <span className="text-slate-500 text-xs font-bold ml-1 not-italic tracking-normal">v5.6</span></h1>
+                            
+                            <label className="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold ml-2 shrink-0 transition-colors flex items-center gap-1 shadow-lg">
+                                + 사진 추가
+                                <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                            </label>
+                            
+                            <button onClick={() => setIsDrawingMode(true)} className="cursor-pointer bg-teal-600 hover:bg-teal-700 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold ml-1 shrink-0 transition-colors shadow-lg flex items-center gap-1">
+                                ✏️ 그리기 모드
+                            </button>
+                            
+                            <div className="flex bg-slate-800 p-1 rounded-lg ml-2 shrink-0">
+                                {['A4', 'A3', 'Letter', '사용자지정'].map(k => (
+                                    <button key={k} onClick={() => setSizeKey(k)} className={`px-3 py-1.5 rounded-md text-[10px] font-bold ${sizeKey === k ? 'bg-blue-600 text-white' : 'text-slate-400'}`}>{k}</button>
+                                ))}
+                            </div>
+                            
+                            {sizeKey === '사용자지정' && (
+                                <div className="flex items-center gap-1 bg-slate-800 p-1 rounded-lg shrink-0">
+                                    <input type="number" value={customSize.width} onChange={e=>setCustomSize({...customSize, width: Number(e.target.value)})} className="w-12 bg-slate-700 text-white text-[10px] px-1 py-1 rounded text-center outline-none" />
+                                    <span className="text-slate-400 text-[10px]">x</span>
+                                    <input type="number" value={customSize.height} onChange={e=>setCustomSize({...customSize, height: Number(e.target.value)})} className="w-12 bg-slate-700 text-white text-[10px] px-1 py-1 rounded text-center outline-none" />
+                                </div>
+                            )}
+                            
+                            <button onClick={() => setIsLandscape(!isLandscape)} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold shrink-0 ${isLandscape ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400'}`}>{isLandscape ? '가로모드' : '세로모드'}</button>
+                            
+                            <div className="w-px h-6 bg-slate-700 mx-1 shrink-0"></div>
+                            
+                            <div className="flex items-center bg-slate-800 p-1 rounded-lg shrink-0">
+                                <span className="text-slate-400 text-[10px] px-2 font-bold">글자 크기</span>
+                                <input type="number" min="8" max="100" 
+                                    value={activeId ? (elements.find(e=>e.id===activeId)?.fontSize ?? style.fontSize) : style.fontSize} 
+                                    onChange={e => {
+                                        let val = e.target.value;
+                                        if (val !== "") {
+                                            val = Number(val);
+                                            if (val > 100) val = 100;
+                                        }
+                                        if (activeId) updateElements(prev => prev.map(el => el.id === activeId ? {...el, fontSize: val} : el));
+                                        else setStyle(prev => ({...prev, fontSize: val}));
+                                    }}
+                                    className="w-12 bg-slate-700 text-white text-xs px-1 py-1 rounded text-center outline-none" 
+                                />
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <span className="text-slate-400 text-xs font-bold mr-2"><span className="text-blue-400">{user?.nickname}</span> 님</span>
+                            <button onClick={exportToWord} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-lg flex items-center gap-1 hover:bg-indigo-700 transition-colors">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                                Word 내보내기
+                            </button>
+                            <button onClick={saveDoc} className="bg-blue-600 text-white px-5 py-2 rounded-lg text-xs font-bold shadow-lg">저장</button>
+                            <button onClick={handleLogout} className="bg-slate-800 text-slate-500 px-4 py-2 rounded-lg text-xs font-bold">로그아웃</button>
+                        </div>
+                    </nav>
+
+                    <div className="app-layout">
+                        <aside className="sidebar no-print">
+                            <div className="sidebar-header"><button onClick={createNewDoc} className="new-btn">+ 새 문서 만들기</button></div>
+                            <div className="sidebar-content">
+                                <h3 className="sidebar-section-title">문서 히스토리</h3>
+                                {[...docs].sort((a,b)=>(b.updatedAt || 0)-(a.updatedAt || 0)).map(doc => (
+                                    <div key={doc.id} onClick={() => switchDoc(doc)} onDoubleClick={() => {setEditingDocId(doc.id); setEditingDocTitle(doc.title);}} className={`doc-item group ${currentDocId === doc.id ? 'active' : ''}`}>
+                                        {editingDocId === doc.id ? (
+                                            <input autoFocus type="text" value={editingDocTitle} 
+                                                onChange={e => setEditingDocTitle(e.target.value)} 
+                                                onBlur={() => {
+                                                    const newDocs = docs.map(d => {
+                                                        const { data, ...rest } = d;
+                                                        return rest.id === doc.id ? { ...rest, title: editingDocTitle || '제목 없음', hasCustomTitle: true } : rest;
+                                                    });
+                                                    setDocs(newDocs);
+                                                    localStorage.setItem(`freedoc_docs_${user.id}`, JSON.stringify(newDocs));
+                                                    setEditingDocId(null);
+                                                    setEditingDocTitle('');
+                                                }}
+                                                onKeyDown={e => { if(e.key === 'Enter') e.target.blur(); }}
+                                                className="flex-1 bg-slate-700 text-white px-1 outline-none text-xs rounded w-full" />
+                                        ) : (
+                                            <span className="truncate flex-1 cursor-text select-none" title="더블 클릭하여 이름 수정">{doc.title}</span>
+                                        )}
+                                        {editingDocId !== doc.id && (
+                                            <button onClick={(e) => { e.stopPropagation(); deleteDoc(doc.id); }} className="hidden group-hover:block text-slate-500 hover:text-red-400 px-1 ml-2">✕</button>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="tray-section">
+                                <h3 className="sidebar-section-title">글감 보관함</h3>
+                                {elements.filter(el => el.inTray).length === 0 && (
+                                    <div className="text-[11px] text-slate-400 p-3 bg-slate-800/50 border border-slate-700 border-dashed rounded-lg text-center leading-relaxed break-keep mt-2 shadow-inner">
+                                        글감이 여기에 저장됩니다.<br/>글감을 만들고 첫 번째 글감을 드래그해서 넣어주시면 여기에 보관됩니다.
+                                    </div>
+                                )}
+                                {elements.filter(el => el.inTray).map(el => (
+                                    <div key={el.id} onMouseDown={(e)=>startAction(e,el,'drag')} className="tray-item mt-1 flex items-center justify-between group relative">
+                                        <div className="flex items-center gap-2 overflow-hidden">
+                                            {el.type === 'image' ? (
+                                                <><img src={el.src} className="w-8 h-8 object-cover rounded border border-slate-600 shrink-0" draggable="false" /> <span className="text-[10px] text-slate-300 shrink-0">[사진 이미지]</span></>
+                                            ) : (
+                                                <span className="truncate">{el.text || '(빈 내용)'}</span>
+                                            )}
+                                        </div>
+                                        <div className="hidden group-hover:flex items-center gap-1 shrink-0 bg-slate-800 pl-1">
+                                            <button onClick={(e) => { e.stopPropagation(); duplicateTrayItem(el); }} onMouseDown={e=>e.stopPropagation()} className="text-[10px] bg-slate-700 hover:bg-slate-600 text-slate-300 px-1.5 py-0.5 rounded shadow">복사</button>
+                                            <button onClick={(e) => { e.stopPropagation(); deleteElement(el.id); }} onMouseDown={e=>e.stopPropagation()} className="text-slate-500 hover:text-red-400 p-1">✕</button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </aside>
+
+                        <div className="canvas-container relative">
+                            {isDrawingMode && (
+                                <div className="fixed top-24 left-1/2 -translate-x-1/2 bg-slate-800/95 backdrop-blur-md px-4 py-3 rounded-2xl shadow-2xl z-[1500] flex items-center gap-3 border border-slate-600 no-print">
+                                    <span className="text-white text-xs font-bold self-center mr-1">✏️</span>
+                                    
+                                    <div className="flex gap-1.5 items-center">
+                                        {['#000000', '#ef4444', '#3b82f6', '#22c55e', '#eab308'].map(c => (
+                                            <button key={c} onClick={() => {setDrawColor(c); setIsEraser(false);}} className={`w-5 h-5 rounded-full shadow-sm transition-transform ${drawColor === c && !isEraser ? 'scale-125 ring-2 ring-white' : 'hover:scale-110 opacity-80 hover:opacity-100'}`} style={{ backgroundColor: c }} title="색상 선택" />
+                                        ))}
+                                    </div>
+                                    
+                                    <div className="w-px h-5 bg-slate-600 mx-1"></div>
+                                    
+                                    <input type="range" min="1" max="50" value={drawSize} onChange={e => setDrawSize(Number(e.target.value))} className="w-24 cursor-pointer" title="펜 굵기" />
+                                    
+                                    <div className="w-px h-5 bg-slate-600 mx-1"></div>
+                                    
+                                    <button onClick={() => setIsEraser(!isEraser)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors shadow ${isEraser ? 'bg-pink-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>지우개</button>
+                                    
+                                    <button onClick={handleUndo} disabled={undoStack.length === 0} className="px-3 py-1.5 bg-slate-700 text-slate-300 rounded-lg text-xs font-bold hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed shadow transition-colors">↩ 취소</button>
+
+                                    <div className="w-px h-5 bg-slate-600 mx-1"></div>
+                                    
+                                    <button onClick={saveDrawing} className="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-xs font-bold hover:bg-blue-700 shadow transition-colors">완료</button>
+                                    <button onClick={cancelDrawing} className="bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-slate-500 shadow transition-colors">닫기</button>
+                                </div>
+                            )}
+                            <div ref={paperRef} onClick={!isDrawingMode ? handlePaperClick : undefined} style={{ width: paperDim.w, height: paperDim.h }} className="paper">
+                                <canvas 
+                                    ref={drawCanvasRef}
+                                    width={paperDim.w} height={paperDim.h}
+                                    onMouseDown={startDrawing}
+                                    onMouseMove={draw}
+                                    onMouseUp={endDrawing}
+                                    onMouseLeave={endDrawing}
+                                    className="absolute top-0 left-0 z-[1000]"
+                                    style={{ 
+                                        display: isDrawingMode ? 'block' : 'none', 
+                                        cursor: isEraser 
+                                            ? `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"><circle cx="12" cy="12" r="10" fill="rgba(236,72,153,0.2)" stroke="hotpink" stroke-width="2"/></svg>') 12 12, auto` 
+                                            : 'crosshair' 
+                                    }}
+                                />
+                                {(() => {
+                                    const textElementsSorted = [...elements.filter(el => el.type !== 'image' && !el.inTray && el.text && el.text.trim() !== '')].sort((a, b) => a.id - b.id);
+                                    return elements.filter(el => !el.inTray).map(el => {
+                                        const isSel = activeId === el.id;
+                                        const isCurEdit = isSel && isEditing;
+                                        
+                                        let cW = 'auto', cH = 'auto';
+                                        if (isCurEdit && measurerRef.current) {
+                                            measurerRef.current.innerText = el.text + ' ';
+                                            measurerRef.current.style.fontSize = el.fontSize + 'px';
+                                            cW = Math.max(40, measurerRef.current.offsetWidth + 20) + 'px';
+                                            cH = Math.max(24, measurerRef.current.offsetHeight + 10) + 'px';
+                                        }
+
+                                        return (
+                                            <div key={el.id}
+                                                onMouseDown={(e)=>startAction(e,el,'drag')}
+                                                onDoubleClick={(e)=>{if(el.type!=='image'){e.stopPropagation(); setIsEditing(true);}}}
+                                                onContextMenu={(e)=>{e.preventDefault(); e.stopPropagation(); setContextMenu({x:e.clientX, y:e.clientY, id:el.id})}}
+                                                className={`text-element ${isSel ? 'selected' : ''}`}
+                                                style={{ left: el.x, top: el.y, fontSize: el.fontSize }}
+                                            >
+                                                {el.type === 'image' ? (
+                                                    <img src={el.src} style={{ width: el.imgWidth, pointerEvents: 'none', borderRadius: '4px', display: 'block' }} draggable="false" />
+                                                ) : isCurEdit ? (
+                                                    <textarea autoFocus value={el.text} 
+                                                        onMouseDown={e=>e.stopPropagation()}
+                                                        onChange={e=>updateElements(prev=>prev.map(i=>i.id===el.id?{...i, text:e.target.value}:i))}
+                                                        onKeyDown={e => {
+                                                            if (e.key === 'Enter') {
+                                                                const now = Date.now();
+                                                                if (now - lastEnterTimeRef.current < 400) {
+                                                                    e.preventDefault();
+                                                                    const nid = Date.now();
+                                                                    const offsetH = measurerRef.current ? measurerRef.current.offsetHeight : 24;
+                                                                    const cleanText = el.text.replace(/\n+$/, '');
+                                                                    
+                                                                    updateElements(prev => {
+                                                                        const updated = prev.map(i => i.id === el.id ? { ...i, text: cleanText } : i);
+                                                                        const newY = Math.round((el.y + offsetH) / SNAP_SIZE) * SNAP_SIZE;
+                                                                        const newEl = { id: nid, x: el.x, y: newY, text: '', fontSize: el.fontSize, inTray: false };
+                                                                        return [...updated, newEl];
+                                                                    });
+                                                                    
+                                                                    setActiveId(nid);
+                                                                }
+                                                                lastEnterTimeRef.current = now;
+                                                            }
+                                                        }}
+                                                        onBlur={()=>{
+                                                            setIsEditing(false);
+                                                            const trimmed = el.text ? el.text.trim() : '';
+                                                            if (trimmed === '') {
+                                                                updateElements(prev => prev.filter(i => i.id !== el.id));
+                                                                setActiveId(null);
+                                                            } else if (el.text !== trimmed) {
+                                                                updateElements(prev => prev.map(i => i.id === el.id ? { ...i, text: trimmed } : i));
+                                                            }
+                                                        }}
+                                                        className="active-textarea" style={{ fontSize: el.fontSize, width: cW, height: cH }} />
+                                                ) : (el.text)}
+                                                {(() => {
+                                                    const seqIdx = textElementsSorted.findIndex(e => e.id === el.id);
+                                                    return isSel && el.type !== 'image' && seqIdx !== -1 && (
+                                                        <div className="absolute -top-5 left-0 bg-blue-500 text-white text-[10px] px-1.5 py-0.5 rounded shadow no-print whitespace-nowrap z-50 font-bold">
+                                                            순서: {seqIdx + 1}
+                                                        </div>
+                                                    );
+                                                })()}
+                                                {isSel && !isEditing && <div className="resize-handle no-print" onMouseDown={(e)=>startAction(e,el,'resize')} />}
+                                            </div>
+                                        );
+                                    });
+                                })()}
+                            </div>
+                        </div>
+                    </div>
+                    {contextMenu && (
+                        <div className="context-menu no-print" style={{ left: contextMenu.x, top: contextMenu.y }}>
+                            <div className="menu-item" onClick={()=>{
+                                const el = elements.find(i=>i.id===contextMenu.id);
+                                if(el) updateElements(prev=>[...prev, {...el, id: Date.now(), x: el.x+20, y: el.y+20}]);
+                                setContextMenu(null);
+                            }}>복제하기</div>
+                            <div className="menu-item delete" onClick={()=>{updateElements(prev=>prev.filter(i=>i.id!==contextMenu.id)); setContextMenu(null);}}>삭제하기</div>
+                        </div>
+                    )}
+                    {confirmModal.isOpen && (
+                        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[2000] flex items-center justify-center no-print fade-in" onClick={() => setConfirmModal({isOpen: false, message: '', onConfirm: null})}>
+                            <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 w-full max-w-sm shadow-2xl" onClick={e => e.stopPropagation()}>
+                                <h3 className="text-white font-bold text-lg mb-2">삭제 확인</h3>
+                                <p className="text-slate-300 text-sm mb-6">{confirmModal.message}</p>
+                                <div className="flex justify-end gap-3">
+                                    <button onClick={() => setConfirmModal({ isOpen: false, message: '', onConfirm: null })} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-bold rounded-lg transition-colors">취소</button>
+                                    <button onClick={() => { confirmModal.onConfirm(); setConfirmModal({ isOpen: false, message: '', onConfirm: null }); }} className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-bold rounded-lg transition-colors shadow-lg">삭제하기</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
